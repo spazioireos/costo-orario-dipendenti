@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Costo Orario Dipendenti - Spazio Ireos</title>
+<meta name="author" content="Christian Canonica">
+<meta name="description" content="Rendicontazione costo orario dipendenti Spazio Ireos - Autore: Christian Canonica">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; font-family:'Lato','Leelawadee UI',system-ui,sans-serif; background:#f4f4f4; color:#222; font-size:13px; }
+  #root { min-height:100vh; }
+
+  .app-header { background:linear-gradient(135deg,#1e3a5f 0%,#2d5a88 100%); color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+  .app-header h1 { margin:0; font-size:20px; font-weight:900; letter-spacing:0.3px; }
+  .app-header .sub { font-size:12px; opacity:0.88; margin-top:2px; }
+  .app-header .actions { display:flex; gap:8px; }
+
+  button { font-family:inherit; font-size:13px; padding:7px 14px; border:1px solid #1e3a5f; background:#fff; color:#1e3a5f; border-radius:4px; cursor:pointer; font-weight:700; transition:all 0.15s; }
+  button:hover { background:#1e3a5f; color:#fff; }
+  button:disabled { opacity:0.4; cursor:not-allowed; }
+  button.primary { background:#1e3a5f; color:#fff; }
+  button.primary:hover { background:#2d5a88; }
+  button.danger { border-color:#b02a2a; color:#b02a2a; }
+  button.danger:hover { background:#b02a2a; color:#fff; }
+  button.ghost { border-color:#888; color:#444; background:transparent; }
+  button.ghost:hover { background:#888; color:#fff; }
+  button.small { padding:4px 9px; font-size:11px; }
+
+  .container { padding:18px 24px; max-width:1900px; margin:0 auto; }
+
+  .dashboard-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+  .dashboard-bar h2 { margin:0; font-size:17px; color:#1e3a5f; font-weight:900; }
+
+  .dip-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; }
+  .dip-card { background:#fff; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); border-top:4px solid #1e3a5f; padding:14px; display:flex; flex-direction:column; gap:6px; position:relative; }
+  .dip-card h3 { margin:0; font-size:15px; color:#1e3a5f; font-weight:900; }
+  .dip-card .level-badge { display:inline-block; padding:2px 8px; background:#1e3a5f; color:#fff; font-size:11px; font-weight:700; border-radius:10px; margin-left:6px; vertical-align:middle; }
+  .dip-card .note { font-size:11px; color:#666; font-style:italic; min-height:14px; }
+  .dip-card .metrics { margin-top:6px; padding-top:8px; border-top:1px solid #eee; display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; font-size:12px; }
+  .dip-card .metrics .lbl { color:#666; }
+  .dip-card .metrics .val { text-align:right; font-weight:700; color:#1e3a5f; font-variant-numeric:tabular-nums; }
+  .dip-card .card-actions { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+
+  .empty-state { background:#fff; border:2px dashed #ccc; border-radius:8px; padding:40px; text-align:center; color:#666; }
+
+  /* EDIT DIPENDENTE */
+  .edit-head { background:#fff; padding:12px 18px; border-radius:6px 6px 0 0; border-bottom:2px solid #1e3a5f; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+  .edit-head h2 { margin:0; font-size:16px; color:#1e3a5f; font-weight:900; }
+
+  .section { background:#fff; margin-bottom:12px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.08); overflow:hidden; }
+  .section-title { background:#e6edf5; padding:8px 14px; font-size:13px; font-weight:900; color:#1e3a5f; border-bottom:1px solid #c3d2e4; text-transform:uppercase; letter-spacing:0.3px; }
+  .section-body { padding:10px 14px; }
+
+  table.calc { width:100%; border-collapse:collapse; font-size:12px; }
+  table.calc th, table.calc td { border:1px solid #d0d0d0; padding:5px 7px; text-align:left; vertical-align:middle; }
+  table.calc th { background:#eef1f6; color:#1e3a5f; font-weight:900; font-size:11px; text-align:center; }
+  table.calc td.num, table.calc th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  table.calc td.calc-cell { background:#f2f2f2; color:#444; font-weight:700; }
+  table.calc td.calc-cell.colored { background:#e3ecf5; color:#1e3a5f; }
+  table.calc td.zero { color:#bbb; }
+  table.calc td.negative { color:#c53030; font-weight:900; }
+  table.calc td.label { background:#fafafa; font-weight:700; color:#333; }
+  table.calc td.note { background:#fff8e1; color:#6b5b2e; font-size:10.5px; font-style:italic; }
+
+  input.cell, select.cell { width:100%; border:1px solid #d0d0d0; background:#fffde7; padding:4px 6px; font-size:12px; font-family:inherit; text-align:right; border-radius:2px; font-variant-numeric:tabular-nums; }
+  input.cell.text { text-align:left; }
+  input.cell:focus, select.cell:focus { outline:2px solid #1e3a5f; outline-offset:-1px; }
+  input.cell.small { padding:3px 5px; font-size:11px; }
+
+  .summary-box { background:linear-gradient(135deg,#1e3a5f 0%,#2d5a88 100%); color:#fff; border-radius:6px; padding:14px 18px; margin-bottom:12px; display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+  .summary-box .metric { text-align:center; }
+  .summary-box .metric .lbl { font-size:10.5px; opacity:0.85; text-transform:uppercase; letter-spacing:0.3px; }
+  .summary-box .metric .val { font-size:20px; font-weight:900; margin-top:3px; font-variant-numeric:tabular-nums; }
+  .summary-box .metric .hint { font-size:10px; opacity:0.7; margin-top:2px; }
+
+  .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px 16px; margin-bottom:10px; }
+  .field-row { display:flex; flex-direction:column; gap:3px; }
+  .field-row label { font-size:11px; color:#555; font-weight:700; text-transform:uppercase; letter-spacing:0.2px; }
+
+  /* CONFRONTO */
+  table.compare { width:100%; border-collapse:collapse; font-size:12px; background:#fff; }
+  table.compare th, table.compare td { border:1px solid #c3d2e4; padding:7px 10px; text-align:left; }
+  table.compare th { background:#1e3a5f; color:#fff; font-weight:900; text-align:center; font-size:12px; }
+  table.compare th.metric-col, table.compare td.metric-col { background:#eef1f6; color:#1e3a5f; font-weight:900; text-align:left; font-size:12px; }
+  table.compare td.num { text-align:right; font-variant-numeric:tabular-nums; font-weight:700; }
+  table.compare tr.highlight td { background:#e3ecf5; }
+  table.compare tr.final td { background:#1e3a5f; color:#fff; font-weight:900; font-size:13px; }
+  table.compare tr.final td.metric-col { background:#142742; color:#fff; }
+
+  /* WIZARD */
+  .wizard-wrap { max-width:700px; margin:20px auto; background:#fff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.1); padding:24px; }
+  .wizard-steps { display:flex; margin-bottom:20px; border-bottom:2px solid #e0e0e0; }
+  .wizard-step { flex:1; text-align:center; padding:10px 4px; font-size:12px; font-weight:700; color:#aaa; border-bottom:3px solid transparent; margin-bottom:-2px; }
+  .wizard-step.active { color:#1e3a5f; border-bottom-color:#1e3a5f; }
+  .wizard-step.done { color:#2d7a3e; border-bottom-color:#2d7a3e; }
+
+  .color-picker { display:flex; gap:6px; flex-wrap:wrap; }
+  .color-dot { width:28px; height:28px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:all 0.15s; }
+  .color-dot.selected { border-color:#222; transform:scale(1.1); }
+
+  .pin-wrap { position:fixed; inset:0; background:linear-gradient(135deg,#1e3a5f 0%,#2d5a88 100%); display:flex; align-items:center; justify-content:center; z-index:1000; }
+  .pin-box { background:#fff; border-radius:12px; padding:36px 48px; text-align:center; box-shadow:0 6px 28px rgba(0,0,0,0.3); min-width:320px; }
+  .pin-box h2 { margin:0 0 6px 0; color:#1e3a5f; font-size:20px; }
+  .pin-box p { margin:0 0 18px 0; color:#666; font-size:12px; }
+  .pin-input { font-size:28px; text-align:center; letter-spacing:14px; padding:10px; width:180px; border:2px solid #1e3a5f; border-radius:6px; font-family:inherit; font-weight:900; color:#1e3a5f; }
+  .pin-err { color:#c53030; font-size:12px; margin-top:10px; font-weight:700; min-height:16px; }
+
+  .footer-note { text-align:center; padding:12px; color:#777; font-size:11px; }
+  .footer-note a { color:#1e3a5f; text-decoration:none; }
+
+  .muted { color:#777; font-size:11px; font-style:italic; }
+
+  /* Responsive on small monitors */
+  @media (max-width: 1400px) {
+    .summary-box { grid-template-columns:repeat(3,1fr); }
+    .form-grid { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+// ===================== UTILITIES =====================
+const fmt = (n, dec) => {
+  if (dec === undefined) dec = 2;
+  if (n === null || n === undefined || isNaN(n)) return '-';
+  const v = Number(n);
+  if (v === 0) return '-';
+  return v.toLocaleString('it-IT', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+};
+const fmt4 = (n) => fmt(n, 4);
+const fmt2 = (n) => fmt(n, 2);
+const fmtEur = (n) => fmt(n, 2) + (n === 0 || n === null || isNaN(n) ? '' : ' €');
+const fmtPct = (n) => fmt(n, 2);
+
+// Parse italiano: accetta "1.234,56" e "1234.56"
+const parseIt = (s) => {
+  if (s === null || s === undefined || s === '') return 0;
+  if (typeof s === 'number') return s;
+  const cleaned = String(s).replace(/\s/g,'').replace(/\./g,'').replace(',', '.');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+};
+
+const uid = () => 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+const COLORI = ['#1e3a5f','#2d7a3e','#b08020','#8b2d5c','#5b3d9c','#2a7a7a','#a0522d','#6b7280'];
+const LIVELLI = ['A1','A2','B1','B2','C1','C2','C3','D1','D2','D3','E1','E2','F1','F2','Altro'];
+
+// ===================== DEFAULT DIPENDENTE =====================
+// Valori predefiniti coerenti con il file Excel originale di Spazio Ireos
+const newDipendente = () => ({
+  id: uid(),
+  cognome: '',
+  nome: '',
+  livello: 'D1',
+  note: '',
+  colore: COLORI[0],
+  createdAt: new Date().toISOString(),
+
+  // Input principali (riga 2 del file)
+  mesiLavoro: 12,
+  mesiMaternita: 0,
+  lordoTPieno: 1605.99,
+  scattiTPieno: 0,
+  premiTPieno: 0,
+  supermin: 41,
+  oreSettContrattuali: 18,
+  giorniSettTeorici: 6,
+  fatturatoAnnuoPrevisto: 440000,
+
+  // Coefficienti ore (colonna O)
+  settimaneEffettLavorabili: 45.25,  // O6
+  oreSettEffettLavorabili: 18,       // O7
+
+  // Sezione I - Costi del lavoro puri (colonne E/F coefficienti)
+  aliquotaQuattordicesima: 50,        // E8
+  giorniFerieAnnui: 30,               // E10
+  festivitaGodute: 0,                 // F12_goduta (F12 del file = 13 fissi non goduti)
+  festivitaNonGodute: 13,             // F12
+  // Malattia: E13 = 12/12*H2*2 (autocalc)
+  aliquotaMalattia: 50,               // I13*100 = 50
+  giorniPermessiAltroTipo: 0,         // E15
+  premiMesiToglibili: 0,              // F17
+  premiImportoMese: 0,                // H17
+  // TFR
+  aliquotaTFR: 13.5,                  // I18
+  rivTFR_anzianita: 1,                // E20
+  rivTFR_istat: 2,                    // F20
+  // Previdenza complementare
+  aliquotaPrevComplTFR: 1.5,          // E22
+  pagamentoPrevComplTFR: 0,           // F22
+  // INPS
+  aliquotaINPS: 26.4,                 // E24
+  pagamentoINPS: 100,                 // F24
+  aliquotaINPSTempoDet: 1.4,          // E25
+  pagamentoINPSTempoDet: 100,         // F25
+  aliquotaINPSFIS: 0.53333,           // E26
+  pagamentoINPSFIS: 100,              // F26
+  aliquotaINAIL: 0.5,                 // E27
+  pagamentoINAIL: 100,                // F27
+  aliquotaIRAP: 3.9,                  // E28
+  pagamentoIRAP: 0,                   // F28
+  // Assistenza sanitaria (solo tempi indeterminati)
+  assistenzaSanitariaAnnua: 132,      // E29
+  // Altri importi
+  bpDichiarazioniMese: 25,            // E30
+  formazioneAnno: 250,                // E31
+  rimborsoKmMesiToglibili: 0,         // F33
+  rimborsoKmImportoMese: 0,           // H33
+
+  // Sezione II - Spese imposte standard / banche / commercialista
+  altriOneriBancari: 500,             // I41
+  iresCoeff: 24,                      // G42 (coeff su H42 che è 2% di fatturato)
+  commercialistaCoeff: 1.1,           // G43 (1,1% su 98% fatturato)
+
+  // Sezione III - Spese sede
+  affittoSede: 1800,                  // I48
+  cda: 17500,                         // I49
+  abbonamentiGare: 200,               // I50
+  sitoPec: 600,                       // I51
+  rc: 1700,                           // I52
+
+  // Sezione IV - Spese extra operatore
+  giorniSostituzione: 28,             // I57
+  costoGiornoSostituzione: 0,         // H57
+  raccomandata: 9,                    // H58
+  visitaMedica: 40,                   // H59
+  oreFormazioneSicurezza: 0,          // H60
+  oreIndiretteAltre: 0,               // H61
+  oreMaggiorazStraord: 0,             // H62
+  utenzeTelMobiliMese: 0,             // H63
+  rsKmMese: 0,                        // H64
+
+  // Sezione VII - Naspi / Ticket licenziamento
+  aliquotaNaspi: 41,                  // H79
+  massimaleAnnuoNaspi: 1221.24        // A80
+});
+
+// ===================== CALCOLATORE =====================
+// Ricostruzione fedele delle formule del file Excel "Criteri orari"
+// Sezione V (SPESE DEL SERVIZIO) omessa come da richiesta
+function calcola(d) {
+  const H2  = Number(d.mesiLavoro) || 0;
+  const I2  = Number(d.mesiMaternita) || 0;
+  const K2  = Number(d.lordoTPieno) || 0;
+  const L2  = Number(d.scattiTPieno) || 0;
+  const M2  = Number(d.premiTPieno) || 0;
+  const N2  = Number(d.supermin) || 0;
+  const O2  = Number(d.oreSettContrattuali) || 0;
+  const Q2  = Number(d.giorniSettTeorici) || 1;
+  const S2  = Number(d.fatturatoAnnuoPrevisto) || 0;
+
+  const H3  = Math.round(H2);
+  const J2  = (K2 + L2 + M2 + N2) / 165;   // Importo orario base CCNL (a tempo pieno)
+  const P2  = O2 * 165 / 38;               // Ore mese teoriche *4.342
+  const R2  = Q2 ? O2 / Q2 : 0;            // Ore/giorno teoriche
+
+  // Catena ore
+  const O5  = H2 * 4.3452;                 // Settimane vere per mesi contratto
+  const O6  = Number(d.settimaneEffettLavorabili) || 0;
+  const O7  = Number(d.oreSettEffettLavorabili) || 0;
+  const O8  = O6 * O7;                     // Ore effettive intero periodo
+  const O9  = O5 ? O8 / O5 : 0;            // Ore settimanali realissime
+  const O10 = Q2 ? O9 / Q2 : 0;            // Ore giorno realissime
+
+  // ===== SEZIONE I - COSTI DEL LAVORO PURI =====
+  // Retribuzione mesi lavorati
+  const H5 = H2 && P2 ? ((K2 + L2 + M2 + N2) / 38 * O2) / P2 * O8 / H2 : 0;
+  const I5 = H2 - I2;
+  const J5 = H5 * I5;
+
+  // Tredicesima (stipendio mensile proporzionato * mesi/12)
+  const H6 = (K2 + L2 + M2 + N2) / 38 * O2;
+  const I6 = H3 * 1 / 12;
+  const J6 = H6 * I6;
+
+  // Quattordicesima (H6 * (H3/12/100*aliquota))
+  const E8 = Number(d.aliquotaQuattordicesima) || 0;
+  const H8 = H6;
+  const I8 = (H3 * 1 / 12) / 100 * E8;
+  const J8 = H8 * I8;
+
+  // Ferie e permessi ex festività (H6/26 * giorni) * mesi/12
+  const E10 = Number(d.giorniFerieAnnui) || 0;
+  const H10 = H6 / 26 * E10;
+  const I10 = H3 * 1 / 12;
+  const J10 = H10 * I10;
+
+  // Festività godute e non godute (solo non godute)
+  const F12 = Number(d.festivitaNonGodute) || 0;
+  const E12 = -F12 + 13; // informativo: residuo 13-nonGodute (se >0 significa godute)
+  const H12 = H6 / 26 * F12;
+  const I12 = 1;
+  const J12 = H12 * I12;
+
+  // Malattia (presunzione 2gg/mese al 50%)
+  const E13 = 12 / 12 * H2 * 2;
+  const H13 = H6 / 26 * E13;
+  const I13 = (Number(d.aliquotaMalattia) || 0) / 100;
+  const J13 = H13 * I13;
+
+  // Permessi altra tipologia
+  const E15 = Number(d.giorniPermessiAltroTipo) || 0;
+  const H15 = H6 / 26 * E15;
+  const I15 = 1;
+  const J15 = H15 * I15;
+
+  // Imponibile I (retribuzioni pure)
+  const L15 = J5 + J6 + J8 + J10 + J12 + J13 + J15;
+
+  // Premi (una tantum)
+  const F17 = Number(d.premiMesiToglibili) || 0;
+  const E17 = H2 - F17;
+  const H17 = Number(d.premiImportoMese) || 0;
+  const J17 = H17 * E17;
+
+  // Imponibile II
+  const L17 = L15 + J17;
+
+  // TFR maturato nell'anno (L15 / aliquota)
+  const I18 = Number(d.aliquotaTFR) || 1;
+  const H18 = L15;
+  const J18 = I18 ? H18 / I18 : 0;
+
+  // Rivalutazione TFR
+  const E20 = Number(d.rivTFR_anzianita) || 0;
+  const F20 = Number(d.rivTFR_istat) || 0;
+  const J20 = (J18 * E20 * E20 / 100 * 1.5) + J18 / 100 * F20 / 100 * 75 * E20;
+
+  // Imponibile III
+  const L20 = L17 + J18 + J20;
+
+  // Previdenza complementare TFR
+  const E22 = Number(d.aliquotaPrevComplTFR) || 0;
+  const F22 = Number(d.pagamentoPrevComplTFR) || 0;
+  const H22 = L15;
+  const I22 = E22 / 100 * F22;
+  const J22 = H22 * I22 / 100;
+
+  // Contributi INPS
+  const E24 = Number(d.aliquotaINPS) || 0;
+  const F24 = Number(d.pagamentoINPS) || 0;
+  const H24 = L17;
+  const I24 = E24 / 100 * F24;
+  const J24 = H24 * I24 / 100;
+
+  const E25 = Number(d.aliquotaINPSTempoDet) || 0;
+  const F25 = Number(d.pagamentoINPSTempoDet) || 0;
+  const H25 = L17;
+  const I25 = E25 / 100 * F25;
+  const J25 = H25 * I25 / 100;
+
+  const E26 = Number(d.aliquotaINPSFIS) || 0;
+  const F26 = Number(d.pagamentoINPSFIS) || 0;
+  const H26 = L17;
+  const I26 = E26 / 100 * F26;
+  const J26 = H26 * I26 / 100;
+
+  const E27 = Number(d.aliquotaINAIL) || 0;
+  const F27 = Number(d.pagamentoINAIL) || 0;
+  const H27 = L17;
+  const I27 = E27 / 100 * F27;
+  const J27 = H27 * I27 / 100;
+
+  // IRAP (su imponibile III)
+  const E28 = Number(d.aliquotaIRAP) || 0;
+  const F28 = Number(d.pagamentoIRAP) || 0;
+  const H28 = L20;
+  const I28 = E28 / 100 * F28;
+  const J28 = H28 * I28 / 100;
+
+  // Assistenza sanitaria integrativa (solo se E25=0, ossia non tempo determinato)
+  const E29 = Number(d.assistenzaSanitariaAnnua) || 0;
+  const F29 = (E25 === 0) ? 100 : 0;
+  const J29 = E29 / 100 * F29;
+
+  // BP e dichiarazioni (€/mese * mesi)
+  const E30 = Number(d.bpDichiarazioniMese) || 0;
+  const I30 = H3;
+  const J30 = E30 * I30;
+
+  // Formazione (€/anno proporzionato ai mesi)
+  const E31 = Number(d.formazioneAnno) || 0;
+  const I31 = H3;
+  const J31 = E31 / 12 * I31;
+
+  // Rimborso km (importo mese * mesi eleggibili)
+  const F33 = Number(d.rimborsoKmMesiToglibili) || 0;
+  const E33 = H2 - F33;
+  const H33 = Number(d.rimborsoKmImportoMese) || 0;
+  const J33 = H33 * E33;
+
+  // Costo totale Sezione I
+  const J34 = J5 + J6 + J8 + J10 + J12 + J13 + J15 + J17 + J18 + J20 + J22 + J24 + J25 + J26 + J27 + J28 + J29 + J30 + J31 + J33;
+
+  // Catena ore lavorabili finali
+  const C37 = 365 / 7 * Q2;
+  const E37 = C37 * H2 / 12;
+  const H37 = E37 * O10;      // Ore effettivamente lavorabili sull'intero periodo
+  const I37 = H2 ? H37 / H2 : 0;
+  const K37 = J34;
+  const J37 = H37 ? K37 / H37 : 0;    // === COSTO ORARIO I ===
+
+  // ===== SEZIONE II - SPESE IMPOSTE STANDARD / BANCHE / COMMERCIALISTA =====
+  const H41 = S2 / 100 * 98;  // 98% del fatturato
+  const I41 = Number(d.altriOneriBancari) || 0;
+  const J41 = H41 ? I41 * K37 / H41 : 0;
+
+  const G42 = Number(d.iresCoeff) || 0;
+  const H42 = S2 - (S2 / 100 * 98);  // 2% del fatturato
+  const I42 = H42 / 100 * G42;
+  const J42 = H42 ? (K37 / 100 * (100 - 98)) * I42 / H42 : 0;
+
+  const G43 = Number(d.commercialistaCoeff) || 0;
+  const H43 = S2 / 100 * 98;
+  const I43 = H43 / 100 * G43;
+  const J43 = H43 ? I43 * K37 / H43 : 0;
+
+  const J44 = J41 + J42 + J43;
+  const K45 = K37 + J44;
+  const J45 = H37 ? K45 / H37 : 0;    // === COSTO ORARIO II ===
+
+  // ===== SEZIONE III - SPESE SEDE =====
+  const H48 = S2 / 100 * 98;
+  const I48 = Number(d.affittoSede) || 0;
+  const J48 = H48 ? I48 * K37 / H48 : 0;
+
+  const H49 = S2 / 100 * 98;
+  const I49 = Number(d.cda) || 0;
+  const J49 = H49 ? I49 * K37 / H49 : 0;
+
+  const H50 = S2 / 100 * 98;
+  const I50 = Number(d.abbonamentiGare) || 0;
+  const J50 = H50 ? I50 * K37 / H50 : 0;
+
+  const H51 = S2 / 100 * 98;
+  const I51 = Number(d.sitoPec) || 0;
+  const J51 = H51 ? I51 * K37 / H51 : 0;
+
+  const H52 = S2 / 100 * 98;
+  const I52 = Number(d.rc) || 0;
+  const J52 = H52 ? I52 * K37 / H52 : 0;
+
+  const J53 = J48 + J49 + J50 + J51 + J52;
+  const K54 = K45 + J53;
+  const J54 = H37 ? K54 / H37 : 0;    // === COSTO ORARIO III ===
+
+  // ===== SEZIONE IV - SPESE EXTRA OPERATORE =====
+  const G57 = 1;
+  const H57 = Number(d.costoGiornoSostituzione) || 0;
+  const I57 = Number(d.giorniSostituzione) || 0;
+  const J57 = I57 * H57 * G57;
+
+  const G58 = 1;
+  const H58 = Number(d.raccomandata) || 0;
+  const I58 = 1;
+  const J58 = I58 * H58 * G58;
+
+  const G59 = 1;
+  const H59 = Number(d.visitaMedica) || 0;
+  const I59 = 1;
+  const J59 = I59 * H59 * G59;
+
+  const G60 = 1;
+  const H60 = Number(d.oreFormazioneSicurezza) || 0;
+  const I60 = J37;
+  const J60 = I60 * H60 * G60;
+
+  const G61 = 1;
+  const H61 = Number(d.oreIndiretteAltre) || 0;
+  const I61 = J37;
+  const J61 = I61 * H61 * G61;
+
+  const G62 = 1;
+  const H62 = Number(d.oreMaggiorazStraord) || 0;
+  const I62 = J37 / 100 * 115;
+  const J62 = I62 * H62 * G62;
+
+  const G63 = 1;
+  const H63 = Number(d.utenzeTelMobiliMese) || 0;
+  const I63 = 12;
+  const J63 = I63 * H63 * G63;
+
+  const G64 = 1;
+  const H64 = Number(d.rsKmMese) || 0;
+  const I64 = H2;
+  const J64 = I64 * H64 * G64;
+
+  const J65 = J57 + J58 + J59 + J60 + J61 + J62 + J63 + J64;
+  const K66 = K54 + J65;
+  const J66 = H37 ? K66 / H37 : 0;    // === COSTO ORARIO IV ===
+
+  // ===== SEZIONE V OMESSA (come da indicazioni utente) =====
+
+  // ===== SEZIONE VII - TICKET LICENZIAMENTO (NASPI) =====
+  const G79 = 1;
+  const H79 = Number(d.aliquotaNaspi) || 0;
+  const I79 = Number(d.massimaleAnnuoNaspi) || 0;
+  const J79 = I79 / 100 * H79 * G79;
+  const J80 = J79;
+  const K81 = K66 + J80;              // V omessa quindi K76 = K66
+  const J81 = H37 ? K81 / H37 : 0;    // === COSTO ORARIO FINALE (CON NASPI) ===
+
+  return {
+    // Input derivati
+    H2, I2, K2, L2, M2, N2, O2, Q2, S2, H3, J2, P2, R2,
+    // Ore
+    O5, O6, O7, O8, O9, O10, C37, E37, H37, I37,
+    // Sezione I dettaglio
+    H5, I5, J5, H6, I6, J6, E8, H8, I8, J8, E10, H10, I10, J10,
+    E12, F12, H12, I12, J12, E13, H13, I13, J13, E15, H15, I15, J15,
+    L15, F17, E17, H17, J17, L17, H18, I18, J18, E20, F20, J20, L20,
+    E22, F22, H22, I22, J22, E24, F24, H24, I24, J24,
+    E25, F25, H25, I25, J25, E26, F26, H26, I26, J26,
+    E27, F27, H27, I27, J27, E28, F28, H28, I28, J28,
+    E29, F29, J29, E30, I30, J30, E31, I31, J31, F33, E33, H33, J33,
+    J34, K37, J37,
+    // Sezione II
+    H41, I41, J41, G42, H42, I42, J42, G43, H43, I43, J43, J44, K45, J45,
+    // Sezione III
+    H48, I48, J48, H49, I49, J49, H50, I50, J50, H51, I51, J51, H52, I52, J52,
+    J53, K54, J54,
+    // Sezione IV
+    G57, H57, I57, J57, H58, I58, J58, H59, I59, J59, H60, I60, J60,
+    H61, I61, J61, H62, I62, J62, H63, I63, J63, H64, I64, J64,
+    J65, K66, J66,
+    // Sezione VII
+    H79, I79, J79, J80, K81, J81
+  };
+}
+
+// ===================== INPUT CELL COMPONENT =====================
+function NumCell({ value, onChange, decimals, width, disabled }) {
+  const [local, setLocal] = useState('');
+  const [editing, setEditing] = useState(false);
+  const dec = decimals !== undefined ? decimals : 2;
+  useEffect(() => {
+    if (!editing) {
+      if (value === 0 || value === null || value === undefined) setLocal('');
+      else setLocal(Number(value).toLocaleString('it-IT', { minimumFractionDigits: dec, maximumFractionDigits: Math.max(dec,4) }));
+    }
+  }, [value, editing, dec]);
+  return (
+    <input
+      className="cell"
+      disabled={disabled}
+      style={width ? { width: width } : undefined}
+      value={local}
+      onFocus={(e)=>{ setEditing(true); if (value===0) setLocal(''); else setLocal(String(value).replace('.', ',')); setTimeout(()=>e.target.select(),0); }}
+      onChange={(e)=>setLocal(e.target.value)}
+      onBlur={()=>{ setEditing(false); const n = parseIt(local); onChange(n); }}
+      onKeyDown={(e)=>{ if (e.key==='Enter') e.target.blur(); }}
+    />
+  );
+}
+
+function TextCell({ value, onChange, placeholder, upper }) {
+  return (
+    <input
+      className="cell text"
+      value={value || ''}
+      placeholder={placeholder || ''}
+      onChange={(e)=>onChange(upper ? e.target.value.toUpperCase() : e.target.value)}
+    />
+  );
+}
+
+// ===================== DASHBOARD =====================
+function Dashboard({ dipendenti, onNew, onEdit, onDelete, onDuplicate, onCompare, onExportAll }) {
+  return (
+    <div className="container">
+      <div className="dashboard-bar">
+        <h2>Dipendenti ({dipendenti.length})</h2>
+        <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+          <button className="primary" onClick={onNew}>+ Nuovo dipendente</button>
+          <button onClick={onCompare} disabled={dipendenti.length < 2}>Confronto ({dipendenti.length})</button>
+          <button onClick={onExportAll} disabled={dipendenti.length === 0}>Esporta tutto (Excel)</button>
+        </div>
+      </div>
+
+      {dipendenti.length === 0 ? (
+        <div className="empty-state">
+          <div style={{fontSize:32, marginBottom:10, opacity:0.3}}>📋</div>
+          <div style={{fontWeight:900, color:'#1e3a5f', fontSize:15}}>Nessun dipendente inserito</div>
+          <div style={{marginTop:6}}>Clicca "+ Nuovo dipendente" per iniziare.</div>
+        </div>
+      ) : (
+        <div className="dip-grid">
+          {dipendenti.map(d => {
+            const c = calcola(d);
+            return (
+              <div key={d.id} className="dip-card" style={{borderTopColor: d.colore}}>
+                <h3>
+                  {(d.cognome || '').trim()} {(d.nome || '').trim()}
+                  <span className="level-badge" style={{background:d.colore}}>{d.livello}</span>
+                </h3>
+                <div className="note">{d.note || ' '}</div>
+                <div className="metrics">
+                  <div className="lbl">Ore sett.</div><div className="val">{fmt(d.oreSettContrattuali,0)}</div>
+                  <div className="lbl">Lordo t.pieno</div><div className="val">{fmt(d.lordoTPieno)} €</div>
+                  <div className="lbl">Mesi anno</div><div className="val">{fmt(d.mesiLavoro,0)}</div>
+                  <div className="lbl">Ore effett. annue</div><div className="val">{fmt(c.H37,1)}</div>
+                  <div className="lbl" style={{gridColumn:'1 / 2'}}><b>Costo orario IV</b></div>
+                  <div className="val" style={{color:d.colore, fontSize:14}}><b>{fmt(c.J66)} €/h</b></div>
+                  <div className="lbl" style={{gridColumn:'1 / 2'}}><b>Costo finale (VII)</b></div>
+                  <div className="val" style={{color:'#b02a2a', fontSize:14}}><b>{fmt(c.J81)} €/h</b></div>
+                </div>
+                <div className="card-actions">
+                  <button className="primary small" onClick={()=>onEdit(d.id)}>Modifica</button>
+                  <button className="small" onClick={()=>onDuplicate(d.id)}>Duplica</button>
+                  <button className="danger small" onClick={()=>onDelete(d.id)}>Elimina</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===================== WIZARD NUOVO =====================
+function Wizard({ onCancel, onSave }) {
+  const [step, setStep] = useState(1);
+  const [draft, setDraft] = useState(newDipendente());
+
+  const upd = (k, v) => setDraft(p => ({ ...p, [k]: v }));
+
+  const canNext1 = (draft.cognome || '').trim() !== '' && (draft.nome || '').trim() !== '';
+
+  return (
+    <div className="container">
+      <div className="wizard-wrap">
+        <div className="wizard-steps">
+          <div className={'wizard-step ' + (step===1?'active':step>1?'done':'')}>1. Identificazione</div>
+          <div className={'wizard-step ' + (step===2?'active':step>2?'done':'')}>2. Dati contrattuali</div>
+          <div className={'wizard-step ' + (step===3?'active':'')}>3. Conferma</div>
+        </div>
+
+        {step === 1 && (
+          <div>
+            <h3 style={{marginTop:0, color:'#1e3a5f'}}>Identificazione dipendente</h3>
+            <div className="form-grid">
+              <div className="field-row">
+                <label>Cognome *</label>
+                <TextCell value={draft.cognome} onChange={v=>upd('cognome', v)} placeholder="Rossi" />
+              </div>
+              <div className="field-row">
+                <label>Nome *</label>
+                <TextCell value={draft.nome} onChange={v=>upd('nome', v)} placeholder="Mario" />
+              </div>
+              <div className="field-row">
+                <label>Livello CCNL</label>
+                <select className="cell" style={{textAlign:'left'}} value={draft.livello} onChange={e=>upd('livello', e.target.value)}>
+                  {LIVELLI.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="field-row">
+              <label>Note</label>
+              <TextCell value={draft.note} onChange={v=>upd('note', v)} placeholder="Es. tempo determinato, part-time, etc." />
+            </div>
+            <div className="field-row" style={{marginTop:10}}>
+              <label>Colore identificativo</label>
+              <div className="color-picker">
+                {COLORI.map(c => (
+                  <div key={c}
+                       className={'color-dot ' + (draft.colore===c?'selected':'')}
+                       style={{background:c}}
+                       onClick={()=>upd('colore', c)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div style={{marginTop:20, display:'flex', justifyContent:'space-between'}}>
+              <button className="ghost" onClick={onCancel}>Annulla</button>
+              <button className="primary" disabled={!canNext1} onClick={()=>setStep(2)}>Avanti →</button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <h3 style={{marginTop:0, color:'#1e3a5f'}}>Dati contrattuali principali</h3>
+            <p className="muted">Questi sono i valori base. Tutti gli altri parametri (aliquote, spese sede, CdA, ecc.) partono da valori standard di Spazio Ireos e potranno essere modificati nella schermata di dettaglio.</p>
+            <div className="form-grid">
+              <div className="field-row">
+                <label>Mesi lavoro annui effettivi</label>
+                <NumCell value={draft.mesiLavoro} decimals={0} onChange={v=>upd('mesiLavoro', v)} />
+              </div>
+              <div className="field-row">
+                <label>Mesi di maternità</label>
+                <NumCell value={draft.mesiMaternita} decimals={0} onChange={v=>upd('mesiMaternita', v)} />
+              </div>
+              <div className="field-row">
+                <label>Lordo tempo pieno (€/mese)</label>
+                <NumCell value={draft.lordoTPieno} onChange={v=>upd('lordoTPieno', v)} />
+              </div>
+              <div className="field-row">
+                <label>Scatti tempo pieno (€)</label>
+                <NumCell value={draft.scattiTPieno} onChange={v=>upd('scattiTPieno', v)} />
+              </div>
+              <div className="field-row">
+                <label>Premi tempo pieno (€)</label>
+                <NumCell value={draft.premiTPieno} onChange={v=>upd('premiTPieno', v)} />
+              </div>
+              <div className="field-row">
+                <label>Supermin./sim. t. pieno (€)</label>
+                <NumCell value={draft.supermin} onChange={v=>upd('supermin', v)} />
+              </div>
+              <div className="field-row">
+                <label>Ore settimanali contrattuali</label>
+                <NumCell value={draft.oreSettContrattuali} decimals={0} onChange={v=>upd('oreSettContrattuali', v)} />
+              </div>
+              <div className="field-row">
+                <label>Giorni settim. teorici</label>
+                <NumCell value={draft.giorniSettTeorici} decimals={0} onChange={v=>upd('giorniSettTeorici', v)} />
+              </div>
+              <div className="field-row">
+                <label>Fatturato annuo previsto (€)</label>
+                <NumCell value={draft.fatturatoAnnuoPrevisto} decimals={0} onChange={v=>upd('fatturatoAnnuoPrevisto', v)} />
+              </div>
+            </div>
+            <div style={{marginTop:20, display:'flex', justifyContent:'space-between'}}>
+              <button className="ghost" onClick={()=>setStep(1)}>← Indietro</button>
+              <button className="primary" onClick={()=>setStep(3)}>Avanti →</button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (() => {
+          const c = calcola(draft);
+          return (
+            <div>
+              <h3 style={{marginTop:0, color:'#1e3a5f'}}>Conferma e anteprima calcolo</h3>
+              <div style={{background:'#f8f9fb', padding:12, borderRadius:6, marginBottom:14}}>
+                <div><b>{draft.cognome} {draft.nome}</b> — Livello <b>{draft.livello}</b></div>
+                <div className="muted">{draft.note || 'Nessuna nota'}</div>
+              </div>
+              <div className="summary-box" style={{gridTemplateColumns:'repeat(5,1fr)'}}>
+                <div className="metric"><div className="lbl">Costo orario I</div><div className="val">{fmt(c.J37)} €</div><div className="hint">lavoro puro</div></div>
+                <div className="metric"><div className="lbl">Costo orario II</div><div className="val">{fmt(c.J45)} €</div><div className="hint">+imposte/comm.</div></div>
+                <div className="metric"><div className="lbl">Costo orario III</div><div className="val">{fmt(c.J54)} €</div><div className="hint">+sede</div></div>
+                <div className="metric"><div className="lbl">Costo orario IV</div><div className="val">{fmt(c.J66)} €</div><div className="hint">+extra operatore</div></div>
+                <div className="metric"><div className="lbl">Costo finale VII</div><div className="val">{fmt(c.J81)} €</div><div className="hint">+Naspi</div></div>
+              </div>
+              <p className="muted">Dopo il salvataggio potrai aprire la scheda di dettaglio per rifinire tutti i parametri (aliquote, spese di sede, CdA, commercialista, coefficienti, ecc.).</p>
+              <div style={{marginTop:20, display:'flex', justifyContent:'space-between'}}>
+                <button className="ghost" onClick={()=>setStep(2)}>← Indietro</button>
+                <button className="primary" onClick={()=>onSave(draft)}>✓ Salva dipendente</button>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
+// ===================== EDIT DIPENDENTE =====================
+function EditDipendente({ dipendente, onSave, onCancel, onExport }) {
+  const [d, setD] = useState(dipendente);
+  const upd = (k, v) => setD(p => ({ ...p, [k]: v }));
+  const c = useMemo(() => calcola(d), [d]);
+
+  return (
+    <div className="container">
+      <div className="edit-head">
+        <h2>
+          <span style={{display:'inline-block', width:12, height:12, borderRadius:'50%', background:d.colore, marginRight:8, verticalAlign:'middle'}}></span>
+          {d.cognome} {d.nome} <span className="level-badge" style={{background:d.colore}}>{d.livello}</span>
+        </h2>
+        <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+          <button onClick={()=>onExport(d)}>Esporta Excel</button>
+          <button className="ghost" onClick={onCancel}>← Torna alla dashboard</button>
+          <button className="primary" onClick={()=>onSave(d)}>✓ Salva modifiche</button>
+        </div>
+      </div>
+
+      {/* SUMMARY IN ALTO */}
+      <div className="summary-box">
+        <div className="metric">
+          <div className="lbl">Costo orario I<br/>(costi lavoro puri)</div>
+          <div className="val">{fmt(c.J37)} €/h</div>
+          <div className="hint">Totale ann. {fmt(c.K37,0)} €</div>
+        </div>
+        <div className="metric">
+          <div className="lbl">Costo orario II<br/>(+imposte/comm.)</div>
+          <div className="val">{fmt(c.J45)} €/h</div>
+          <div className="hint">Totale ann. {fmt(c.K45,0)} €</div>
+        </div>
+        <div className="metric">
+          <div className="lbl">Costo orario III<br/>(+spese sede)</div>
+          <div className="val">{fmt(c.J54)} €/h</div>
+          <div className="hint">Totale ann. {fmt(c.K54,0)} €</div>
+        </div>
+        <div className="metric">
+          <div className="lbl">Costo orario IV<br/>(+extra operat.)</div>
+          <div className="val">{fmt(c.J66)} €/h</div>
+          <div className="hint">Totale ann. {fmt(c.K66,0)} €</div>
+        </div>
+        <div className="metric" style={{background:'rgba(255,255,255,0.12)', borderRadius:6, padding:'4px 8px'}}>
+          <div className="lbl">COSTO FINALE (VII)<br/>(+Naspi)</div>
+          <div className="val" style={{fontSize:22, color:'#ffd87a'}}>{fmt(c.J81)} €/h</div>
+          <div className="hint">Totale ann. {fmt(c.K81,0)} €</div>
+        </div>
+      </div>
+
+      {/* IDENTIFICAZIONE */}
+      <div className="section">
+        <div className="section-title">Identificazione</div>
+        <div className="section-body">
+          <div className="form-grid">
+            <div className="field-row"><label>Cognome</label><TextCell value={d.cognome} onChange={v=>upd('cognome',v)} /></div>
+            <div className="field-row"><label>Nome</label><TextCell value={d.nome} onChange={v=>upd('nome',v)} /></div>
+            <div className="field-row"><label>Livello CCNL</label>
+              <select className="cell" style={{textAlign:'left'}} value={d.livello} onChange={e=>upd('livello', e.target.value)}>
+                {LIVELLI.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+            <div className="field-row"><label>Colore</label>
+              <div className="color-picker">
+                {COLORI.map(col => (
+                  <div key={col} className={'color-dot ' + (d.colore===col?'selected':'')} style={{background:col}} onClick={()=>upd('colore', col)} />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="field-row" style={{marginTop:8}}>
+            <label>Note</label>
+            <TextCell value={d.note} onChange={v=>upd('note', v)} />
+          </div>
+        </div>
+      </div>
+
+      {/* INPUT PRINCIPALI */}
+      <div className="section">
+        <div className="section-title">Dati contrattuali principali (riga input)</div>
+        <div className="section-body">
+          <table className="calc">
+            <thead>
+              <tr>
+                <th>Mesi lavoro effettivi</th>
+                <th>Mesi maternità</th>
+                <th>Importo orario *</th>
+                <th>Lordo t.pieno</th>
+                <th>Scatti t.pieno</th>
+                <th>Premi t.pieno</th>
+                <th>Supermin. t.pieno</th>
+                <th>Ore sett. contratt.</th>
+                <th>Ore mese teor. *</th>
+                <th>Gg sett. teor.</th>
+                <th>Ore giorno teor. *</th>
+                <th>Fatturato annuo prev.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><NumCell value={d.mesiLavoro} decimals={0} onChange={v=>upd('mesiLavoro',v)} /></td>
+                <td><NumCell value={d.mesiMaternita} decimals={0} onChange={v=>upd('mesiMaternita',v)} /></td>
+                <td className="calc-cell num">{fmt(c.J2, 4)}</td>
+                <td><NumCell value={d.lordoTPieno} onChange={v=>upd('lordoTPieno',v)} /></td>
+                <td><NumCell value={d.scattiTPieno} onChange={v=>upd('scattiTPieno',v)} /></td>
+                <td><NumCell value={d.premiTPieno} onChange={v=>upd('premiTPieno',v)} /></td>
+                <td><NumCell value={d.supermin} onChange={v=>upd('supermin',v)} /></td>
+                <td><NumCell value={d.oreSettContrattuali} decimals={0} onChange={v=>upd('oreSettContrattuali',v)} /></td>
+                <td className="calc-cell num">{fmt(c.P2)}</td>
+                <td><NumCell value={d.giorniSettTeorici} decimals={0} onChange={v=>upd('giorniSettTeorici',v)} /></td>
+                <td className="calc-cell num">{fmt(c.R2)}</td>
+                <td><NumCell value={d.fatturatoAnnuoPrevisto} decimals={0} onChange={v=>upd('fatturatoAnnuoPrevisto',v)} /></td>
+              </tr>
+            </tbody>
+          </table>
+          <div className="muted" style={{marginTop:6}}>* celle calcolate automaticamente. Importo orario = (Lordo+Scatti+Premi+Supermin)/165. Ore mese teor. = Ore sett × 165/38. Ore giorno teor. = Ore sett / gg sett.</div>
+        </div>
+      </div>
+
+      {/* CATENA ORE */}
+      <div className="section">
+        <div className="section-title">Catena calcolo ore lavorabili</div>
+        <div className="section-body">
+          <table className="calc">
+            <thead>
+              <tr>
+                <th>Parametro</th><th>Valore</th><th>Formula / Fonte</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td className="label">Settimane vere per mesi contratto (O5)</td><td className="calc-cell num">{fmt(c.O5,4)}</td><td className="note">Mesi × 4,3452</td></tr>
+              <tr><td className="label">Settimane effettivamente lavorabili (escl. ferie) (O6)</td>
+                  <td><NumCell value={d.settimaneEffettLavorabili} decimals={2} onChange={v=>upd('settimaneEffettLavorabili',v)} /></td>
+                  <td className="note">Input — default 45,25</td></tr>
+              <tr><td className="label">Ore settimanali effett. lavorabili (O7)</td>
+                  <td><NumCell value={d.oreSettEffettLavorabili} decimals={0} onChange={v=>upd('oreSettEffettLavorabili',v)} /></td>
+                  <td className="note">Input — di norma = ore sett. contratt.</td></tr>
+              <tr><td className="label">Ore effett. lavorab. sull'intero periodo (O8)</td><td className="calc-cell num">{fmt(c.O8,2)}</td><td className="note">O6 × O7</td></tr>
+              <tr><td className="label">Ore settimanali realissime (O9)</td><td className="calc-cell num">{fmt(c.O9,4)}</td><td className="note">O8 / O5</td></tr>
+              <tr><td className="label">Ore giornaliere realissime (O10)</td><td className="calc-cell num">{fmt(c.O10,4)}</td><td className="note">O9 / gg sett. teor.</td></tr>
+              <tr><td className="label">Giorni lavorativi annui generali (C37)</td><td className="calc-cell num">{fmt(c.C37,4)}</td><td className="note">365/7 × gg sett. teor.</td></tr>
+              <tr><td className="label">Giorni lavorativi nei soli mesi contratto (E37)</td><td className="calc-cell num">{fmt(c.E37,4)}</td><td className="note">C37 × Mesi / 12</td></tr>
+              <tr><td className="label"><b>Ore effettivam. lavorabili sull'intero periodo (H37)</b></td><td className="calc-cell colored num"><b>{fmt(c.H37,2)}</b></td><td className="note">E37 × O10 — base per costo orario</td></tr>
+              <tr><td className="label">Ore mensili effettivam. lavorabili (I37)</td><td className="calc-cell num">{fmt(c.I37,2)}</td><td className="note">H37 / Mesi</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* SEZIONE I - COSTI LAVORO PURI */}
+      <div className="section">
+        <div className="section-title">Sezione I — Costi del lavoro puri</div>
+        <div className="section-body">
+          <table className="calc">
+            <thead>
+              <tr>
+                <th style={{width:'26%'}}>Voce</th>
+                <th style={{width:'9%'}}>Giorni/%</th>
+                <th style={{width:'9%'}}>Altri coeff.</th>
+                <th className="num" style={{width:'12%'}}>Base</th>
+                <th className="num" style={{width:'12%'}}>Coefficiente</th>
+                <th className="num" style={{width:'12%'}}>Importo €</th>
+                <th style={{width:'20%'}}>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="label">Retribuzione mesi lavorati</td>
+                <td colSpan="2" className="note">mesi eleggibili = Mesi − Maternità = {fmt(c.I5,0)}</td>
+                <td className="calc-cell num">{fmt(c.H5,4)}</td>
+                <td className="calc-cell num">{fmt(c.I5,0)}</td>
+                <td className="calc-cell colored num">{fmt(c.J5)}</td>
+                <td className="note">Base oraria × mesi eleg.</td>
+              </tr>
+              <tr>
+                <td className="label">Tredicesima</td>
+                <td colSpan="2" className="note">coeff = Mesi/12 = {fmt(c.I6,4)}</td>
+                <td className="calc-cell num">{fmt(c.H6)}</td>
+                <td className="calc-cell num">{fmt(c.I6,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J6)}</td>
+                <td className="note">Mensilità proporz. × Mesi/12</td>
+              </tr>
+              <tr>
+                <td className="label">Quattordicesima</td>
+                <td><NumCell value={d.aliquotaQuattordicesima} onChange={v=>upd('aliquotaQuattordicesima',v)} /></td>
+                <td className="note">% standard</td>
+                <td className="calc-cell num">{fmt(c.H8)}</td>
+                <td className="calc-cell num">{fmt(c.I8,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J8)}</td>
+                <td className="note">= (Mesi/12)/100 × aliq.</td>
+              </tr>
+              <tr>
+                <td className="label">Ferie e permessi ex festività</td>
+                <td><NumCell value={d.giorniFerieAnnui} decimals={0} onChange={v=>upd('giorniFerieAnnui',v)} /></td>
+                <td className="note">giorni annui</td>
+                <td className="calc-cell num">{fmt(c.H10)}</td>
+                <td className="calc-cell num">{fmt(c.I10,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J10)}</td>
+                <td className="note">(mens./26)×gg × Mesi/12</td>
+              </tr>
+              <tr>
+                <td className="label">Festività non godute</td>
+                <td><NumCell value={d.festivitaNonGodute} decimals={0} onChange={v=>upd('festivitaNonGodute',v)} /></td>
+                <td className="note">gg non goduti (di 13)</td>
+                <td className="calc-cell num">{fmt(c.H12)}</td>
+                <td className="calc-cell num">{fmt(c.I12,0)}</td>
+                <td className="calc-cell colored num">{fmt(c.J12)}</td>
+                <td className="note">13 festivi standard</td>
+              </tr>
+              <tr>
+                <td className="label">Malattia (presunzione)</td>
+                <td className="calc-cell num">{fmt(c.E13,0)}</td>
+                <td><NumCell value={d.aliquotaMalattia} onChange={v=>upd('aliquotaMalattia',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H13)}</td>
+                <td className="calc-cell num">{fmt(c.I13,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J13)}</td>
+                <td className="note">gg = Mesi×2; carico 50%</td>
+              </tr>
+              <tr>
+                <td className="label">Permessi altra tipologia</td>
+                <td><NumCell value={d.giorniPermessiAltroTipo} decimals={0} onChange={v=>upd('giorniPermessiAltroTipo',v)} /></td>
+                <td className="note">giorni</td>
+                <td className="calc-cell num">{fmt(c.H15)}</td>
+                <td className="calc-cell num">{fmt(c.I15,0)}</td>
+                <td className="calc-cell colored num">{fmt(c.J15)}</td>
+                <td className="note">(mens./26) × gg</td>
+              </tr>
+              <tr>
+                <td colSpan="5" className="label"><b>Imponibile I (retribuzioni pure)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.L15)}</b></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td className="label">Premi (una tantum)</td>
+                <td><NumCell value={d.premiImportoMese} onChange={v=>upd('premiImportoMese',v)} /></td>
+                <td><NumCell value={d.premiMesiToglibili} decimals={0} onChange={v=>upd('premiMesiToglibili',v)} /></td>
+                <td colSpan="2" className="note">imp. mese × (Mesi − mesi toglibili)</td>
+                <td className="calc-cell colored num">{fmt(c.J17)}</td>
+                <td className="note">importo/mese × mesi residui</td>
+              </tr>
+              <tr>
+                <td colSpan="5" className="label"><b>Imponibile II</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.L17)}</b></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td className="label">TFR maturato nell'anno</td>
+                <td colSpan="2" className="note">divisore: <NumCell value={d.aliquotaTFR} onChange={v=>upd('aliquotaTFR',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H18)}</td>
+                <td className="calc-cell num">{fmt(c.I18)}</td>
+                <td className="calc-cell colored num">{fmt(c.J18)}</td>
+                <td className="note">= Imponibile I / 13,5</td>
+              </tr>
+              <tr>
+                <td className="label">Rivalutazione TFR</td>
+                <td><NumCell value={d.rivTFR_anzianita} onChange={v=>upd('rivTFR_anzianita',v)} /></td>
+                <td><NumCell value={d.rivTFR_istat} onChange={v=>upd('rivTFR_istat',v)} /></td>
+                <td colSpan="2" className="note">1,5% fisso + 75% ISTAT anno prec.</td>
+                <td className="calc-cell colored num">{fmt(c.J20)}</td>
+                <td className="note">anzianità × istat%</td>
+              </tr>
+              <tr>
+                <td colSpan="5" className="label"><b>Imponibile III (Imp.II + TFR + Rival. TFR)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.L20)}</b></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td className="label">Previdenza complementare TFR</td>
+                <td><NumCell value={d.aliquotaPrevComplTFR} onChange={v=>upd('aliquotaPrevComplTFR',v)} /></td>
+                <td><NumCell value={d.pagamentoPrevComplTFR} decimals={0} onChange={v=>upd('pagamentoPrevComplTFR',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H22)}</td>
+                <td className="calc-cell num">{fmt(c.I22,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J22)}</td>
+                <td className="note">% aliq × % pagamento</td>
+              </tr>
+              <tr>
+                <td className="label">Contributi INPS (ca. 26,90%)</td>
+                <td><NumCell value={d.aliquotaINPS} onChange={v=>upd('aliquotaINPS',v)} /></td>
+                <td><NumCell value={d.pagamentoINPS} decimals={0} onChange={v=>upd('pagamentoINPS',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H24)}</td>
+                <td className="calc-cell num">{fmt(c.I24,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J24)}</td>
+                <td className="note">su Imp. II</td>
+              </tr>
+              <tr>
+                <td className="label">Contributi INPS tempo det.</td>
+                <td><NumCell value={d.aliquotaINPSTempoDet} onChange={v=>upd('aliquotaINPSTempoDet',v)} /></td>
+                <td><NumCell value={d.pagamentoINPSTempoDet} decimals={0} onChange={v=>upd('pagamentoINPSTempoDet',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H25)}</td>
+                <td className="calc-cell num">{fmt(c.I25,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J25)}</td>
+                <td className="note">metti a 0 se tempo indet.</td>
+              </tr>
+              <tr>
+                <td className="label">Contributi INPS FIS</td>
+                <td><NumCell value={d.aliquotaINPSFIS} decimals={5} onChange={v=>upd('aliquotaINPSFIS',v)} /></td>
+                <td><NumCell value={d.pagamentoINPSFIS} decimals={0} onChange={v=>upd('pagamentoINPSFIS',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H26)}</td>
+                <td className="calc-cell num">{fmt(c.I26,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J26)}</td>
+                <td className="note">su Imp. II</td>
+              </tr>
+              <tr>
+                <td className="label">Contributi INAIL</td>
+                <td><NumCell value={d.aliquotaINAIL} onChange={v=>upd('aliquotaINAIL',v)} /></td>
+                <td><NumCell value={d.pagamentoINAIL} decimals={0} onChange={v=>upd('pagamentoINAIL',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H27)}</td>
+                <td className="calc-cell num">{fmt(c.I27,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J27)}</td>
+                <td className="note">su Imp. II</td>
+              </tr>
+              <tr>
+                <td className="label">IRAP</td>
+                <td><NumCell value={d.aliquotaIRAP} onChange={v=>upd('aliquotaIRAP',v)} /></td>
+                <td><NumCell value={d.pagamentoIRAP} decimals={0} onChange={v=>upd('pagamentoIRAP',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H28)}</td>
+                <td className="calc-cell num">{fmt(c.I28,4)}</td>
+                <td className="calc-cell colored num">{fmt(c.J28)}</td>
+                <td className="note">su Imp. III (pagamento 0 = non applicata)</td>
+              </tr>
+              <tr>
+                <td className="label">Assistenza sanit. integr. t. indet.</td>
+                <td><NumCell value={d.assistenzaSanitariaAnnua} decimals={0} onChange={v=>upd('assistenzaSanitariaAnnua',v)} /></td>
+                <td className="calc-cell num">{fmt(c.F29,0)}%</td>
+                <td colSpan="2" className="note">attivo solo se INPS tempo det = 0</td>
+                <td className="calc-cell colored num">{fmt(c.J29)}</td>
+                <td className="note">€/anno fisso</td>
+              </tr>
+              <tr>
+                <td className="label">Altri importi — BP e dichiarazioni</td>
+                <td><NumCell value={d.bpDichiarazioniMese} onChange={v=>upd('bpDichiarazioniMese',v)} /></td>
+                <td className="note">€/mese</td>
+                <td colSpan="2" className="calc-cell num">× {fmt(c.I30,0)} mesi</td>
+                <td className="calc-cell colored num">{fmt(c.J30)}</td>
+                <td className="note">€/mese × mesi</td>
+              </tr>
+              <tr>
+                <td className="label">Altri importi — Formazione</td>
+                <td><NumCell value={d.formazioneAnno} onChange={v=>upd('formazioneAnno',v)} /></td>
+                <td className="note">€/anno</td>
+                <td colSpan="2" className="calc-cell num">× {fmt(c.I31,0)}/12 mesi</td>
+                <td className="calc-cell colored num">{fmt(c.J31)}</td>
+                <td className="note">prop. ai mesi</td>
+              </tr>
+              <tr>
+                <td className="label">Altri importi — Rimborso km</td>
+                <td><NumCell value={d.rimborsoKmImportoMese} onChange={v=>upd('rimborsoKmImportoMese',v)} /></td>
+                <td><NumCell value={d.rimborsoKmMesiToglibili} decimals={0} onChange={v=>upd('rimborsoKmMesiToglibili',v)} /></td>
+                <td colSpan="2" className="note">imp. mese × (Mesi − toglibili)</td>
+                <td className="calc-cell colored num">{fmt(c.J33)}</td>
+                <td className="note"></td>
+              </tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="5" className="label"><b>COSTO TUTTI I MESI DI LAVORO I (J34)</b></td>
+                <td className="calc-cell colored num" style={{fontSize:13, fontWeight:900}}>{fmt(c.J34)}</td>
+                <td></td>
+              </tr>
+              <tr style={{background:'#d4e3f2'}}>
+                <td colSpan="5" className="label"><b>COSTO ORARIO I = J34 / H37</b></td>
+                <td className="calc-cell colored num" style={{fontSize:14, fontWeight:900, color:'#1e3a5f'}}>{fmt(c.J37)} €/h</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* SEZIONE II - SPESE IMPOSTE / BANCHE / COMMERCIALISTA */}
+      <div className="section">
+        <div className="section-title">Sezione II — Spese imposte standard, banche, commercialista</div>
+        <div className="section-body">
+          <p className="muted">Logica: ogni costo forfait è spalmato proporzionalmente usando il fatturato annuo previsto × 98% (per voci su "imponibile") o il residuo 2% (per IRES/contributi cooperativa).</p>
+          <table className="calc">
+            <thead>
+              <tr>
+                <th style={{width:'30%'}}>Voce</th>
+                <th className="num" style={{width:'10%'}}>Coeff. (G)</th>
+                <th className="num" style={{width:'15%'}}>Base fatturato (H)</th>
+                <th className="num" style={{width:'15%'}}>Costo annuo (I)</th>
+                <th className="num" style={{width:'15%'}}>Importo spalmato (J)</th>
+                <th style={{width:'15%'}}>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="label">Altri oneri bancari</td>
+                <td className="calc-cell num">1</td>
+                <td className="calc-cell num">{fmt(c.H41,0)}</td>
+                <td><NumCell value={d.altriOneriBancari} onChange={v=>upd('altriOneriBancari',v)} /></td>
+                <td className="calc-cell colored num">{fmt(c.J41)}</td>
+                <td className="note">I × K37 / (98% fatt.)</td>
+              </tr>
+              <tr>
+                <td className="label">IRES + contributi coop.</td>
+                <td><NumCell value={d.iresCoeff} onChange={v=>upd('iresCoeff',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H42,0)}</td>
+                <td className="calc-cell num">{fmt(c.I42,0)}</td>
+                <td className="calc-cell colored num">{fmt(c.J42)}</td>
+                <td className="note">su 2% fatt.; coeff = %</td>
+              </tr>
+              <tr>
+                <td className="label">Commercialista annuo</td>
+                <td><NumCell value={d.commercialistaCoeff} onChange={v=>upd('commercialistaCoeff',v)} /></td>
+                <td className="calc-cell num">{fmt(c.H43,0)}</td>
+                <td className="calc-cell num">{fmt(c.I43,0)}</td>
+                <td className="calc-cell colored num">{fmt(c.J43)}</td>
+                <td className="note">1,1% di 98% fatt.</td>
+              </tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="4" className="label"><b>Totale costi altri Sezione II (J44)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.J44)}</b></td>
+                <td></td>
+              </tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="4" className="label"><b>Costo tutti i mesi di lavoro II (K45)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.K45)}</b></td>
+                <td></td>
+              </tr>
+              <tr style={{background:'#d4e3f2'}}>
+                <td colSpan="4" className="label"><b>COSTO ORARIO II</b></td>
+                <td className="calc-cell colored num" style={{fontSize:14, fontWeight:900, color:'#1e3a5f'}}>{fmt(c.J45)} €/h</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* SEZIONE III - SPESE SEDE */}
+      <div className="section">
+        <div className="section-title">Sezione III — Spese di sede</div>
+        <div className="section-body">
+          <table className="calc">
+            <thead>
+              <tr>
+                <th style={{width:'30%'}}>Voce</th>
+                <th className="num" style={{width:'15%'}}>Base (98% fatt.)</th>
+                <th className="num" style={{width:'15%'}}>Costo annuo</th>
+                <th className="num" style={{width:'15%'}}>Importo spalmato</th>
+                <th style={{width:'25%'}}>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td className="label">Affitto sede e utenza tel.</td><td className="calc-cell num">{fmt(c.H48,0)}</td>
+                <td><NumCell value={d.affittoSede} onChange={v=>upd('affittoSede',v)} /></td>
+                <td className="calc-cell colored num">{fmt(c.J48)}</td><td className="note">forfait annuo</td></tr>
+              <tr><td className="label">CdA</td><td className="calc-cell num">{fmt(c.H49,0)}</td>
+                <td><NumCell value={d.cda} onChange={v=>upd('cda',v)} /></td>
+                <td className="calc-cell colored num">{fmt(c.J49)}</td><td className="note">compensi organo</td></tr>
+              <tr><td className="label">Abbonamenti gare</td><td className="calc-cell num">{fmt(c.H50,0)}</td>
+                <td><NumCell value={d.abbonamentiGare} onChange={v=>upd('abbonamentiGare',v)} /></td>
+                <td className="calc-cell colored num">{fmt(c.J50)}</td><td className="note"></td></tr>
+              <tr><td className="label">Sito web e PEC</td><td className="calc-cell num">{fmt(c.H51,0)}</td>
+                <td><NumCell value={d.sitoPec} onChange={v=>upd('sitoPec',v)} /></td>
+                <td className="calc-cell colored num">{fmt(c.J51)}</td><td className="note"></td></tr>
+              <tr><td className="label">RC</td><td className="calc-cell num">{fmt(c.H52,0)}</td>
+                <td><NumCell value={d.rc} onChange={v=>upd('rc',v)} /></td>
+                <td className="calc-cell colored num">{fmt(c.J52)}</td><td className="note">responsab. civile</td></tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="3" className="label"><b>Totale costi altri Sezione III (J53)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.J53)}</b></td><td></td></tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="3" className="label"><b>Costo tutti i mesi di lavoro III (K54)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.K54)}</b></td><td></td></tr>
+              <tr style={{background:'#d4e3f2'}}>
+                <td colSpan="3" className="label"><b>COSTO ORARIO III</b></td>
+                <td className="calc-cell colored num" style={{fontSize:14, fontWeight:900, color:'#1e3a5f'}}>{fmt(c.J54)} €/h</td>
+                <td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* SEZIONE IV - SPESE EXTRA OPERATORE */}
+      <div className="section">
+        <div className="section-title">Sezione IV — Spese extra operatore</div>
+        <div className="section-body">
+          <table className="calc">
+            <thead>
+              <tr>
+                <th style={{width:'25%'}}>Voce</th>
+                <th className="num" style={{width:'13%'}}>Coeff (G)</th>
+                <th className="num" style={{width:'13%'}}>Costo unit. (H)</th>
+                <th className="num" style={{width:'13%'}}>Quantità (I)</th>
+                <th className="num" style={{width:'13%'}}>Importo (J)</th>
+                <th style={{width:'23%'}}>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="label">Giorni sostituzione</td>
+                <td className="calc-cell num">1</td>
+                <td><NumCell value={d.costoGiornoSostituzione} onChange={v=>upd('costoGiornoSostituzione',v)} /></td>
+                <td><NumCell value={d.giorniSostituzione} decimals={0} onChange={v=>upd('giorniSostituzione',v)} /></td>
+                <td className="calc-cell colored num">{fmt(c.J57)}</td>
+                <td className="note">di norma 0 (ferie già liquidate)</td>
+              </tr>
+              <tr>
+                <td className="label">Raccomandata invio contratto</td>
+                <td className="calc-cell num">1</td>
+                <td><NumCell value={d.raccomandata} onChange={v=>upd('raccomandata',v)} /></td>
+                <td className="calc-cell num">1</td>
+                <td className="calc-cell colored num">{fmt(c.J58)}</td>
+                <td className="note">una tantum</td>
+              </tr>
+              <tr>
+                <td className="label">Visita medica annua</td>
+                <td className="calc-cell num">1</td>
+                <td><NumCell value={d.visitaMedica} onChange={v=>upd('visitaMedica',v)} /></td>
+                <td className="calc-cell num">1</td>
+                <td className="calc-cell colored num">{fmt(c.J59)}</td>
+                <td className="note">annua</td>
+              </tr>
+              <tr>
+                <td className="label">Ore formazione sicurezza</td>
+                <td className="calc-cell num">1</td>
+                <td><NumCell value={d.oreFormazioneSicurezza} onChange={v=>upd('oreFormazioneSicurezza',v)} /></td>
+                <td className="calc-cell num">{fmt(c.I60,2)}</td>
+                <td className="calc-cell colored num">{fmt(c.J60)}</td>
+                <td className="note">ore × costo orario I</td>
+              </tr>
+              <tr>
+                <td className="label">Ore indirette altra tipologia</td>
+                <td className="calc-cell num">1</td>
+                <td><NumCell value={d.oreIndiretteAltre} onChange={v=>upd('oreIndiretteAltre',v)} /></td>
+                <td className="calc-cell num">{fmt(c.I61,2)}</td>
+                <td className="calc-cell colored num">{fmt(c.J61)}</td>
+                <td className="note">ore × costo orario I</td>
+              </tr>
+              <tr>
+                <td className="label">Ore maggiorazione straord.</td>
+                <td className="calc-cell num">1</td>
+                <td><NumCell value={d.oreMaggiorazStraord} onChange={v=>upd('oreMaggiorazStraord',v)} /></td>
+                <td className="calc-cell num">{fmt(c.I62,2)}</td>
+                <td className="calc-cell colored num">{fmt(c.J62)}</td>
+                <td className="note">ore × 115% costo or. I</td>
+              </tr>
+              <tr>
+                <td className="label">Utenze telefoniche mobili</td>
+                <td className="calc-cell num">1</td>
+                <td><NumCell value={d.utenzeTelMobiliMese} onChange={v=>upd('utenzeTelMobiliMese',v)} /></td>
+                <td className="calc-cell num">12</td>
+                <td className="calc-cell colored num">{fmt(c.J63)}</td>
+                <td className="note">€/mese × 12</td>
+              </tr>
+              <tr>
+                <td className="label">Rimborsi km mensili</td>
+                <td className="calc-cell num">1</td>
+                <td><NumCell value={d.rsKmMese} onChange={v=>upd('rsKmMese',v)} /></td>
+                <td className="calc-cell num">{fmt(c.I64,0)}</td>
+                <td className="calc-cell colored num">{fmt(c.J64)}</td>
+                <td className="note">€/mese × mesi</td>
+              </tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="4" className="label"><b>Totale costi altri Sezione IV (J65)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.J65)}</b></td><td></td></tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="4" className="label"><b>Costo tutti i mesi di lavoro IV (K66)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.K66)}</b></td><td></td></tr>
+              <tr style={{background:'#d4e3f2'}}>
+                <td colSpan="4" className="label"><b>COSTO ORARIO IV</b></td>
+                <td className="calc-cell colored num" style={{fontSize:14, fontWeight:900, color:'#1e3a5f'}}>{fmt(c.J66)} €/h</td>
+                <td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* SEZIONE VII - NASPI */}
+      <div className="section">
+        <div className="section-title">Sezione VII — Ticket licenziamento (NASpI)</div>
+        <div className="section-body">
+          <table className="calc">
+            <thead>
+              <tr>
+                <th style={{width:'30%'}}>Voce</th>
+                <th className="num" style={{width:'13%'}}>Aliquota %</th>
+                <th className="num" style={{width:'17%'}}>Massimale annuo NASpI (€)</th>
+                <th className="num" style={{width:'15%'}}>Importo (J)</th>
+                <th style={{width:'25%'}}>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="label">Ticket licenziamento tempi indet.</td>
+                <td><NumCell value={d.aliquotaNaspi} onChange={v=>upd('aliquotaNaspi',v)} /></td>
+                <td><NumCell value={d.massimaleAnnuoNaspi} onChange={v=>upd('massimaleAnnuoNaspi',v)} /></td>
+                <td className="calc-cell colored num">{fmt(c.J79)}</td>
+                <td className="note">= Massimale × Aliq% / 100</td>
+              </tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="3" className="label"><b>Totale Sezione VII (J80)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.J80)}</b></td><td></td></tr>
+              <tr style={{background:'#e3ecf5'}}>
+                <td colSpan="3" className="label"><b>Costo tutti i mesi di lavoro VII (K81)</b></td>
+                <td className="calc-cell colored num"><b>{fmt(c.K81)}</b></td><td></td></tr>
+              <tr style={{background:'#ffe8a0'}}>
+                <td colSpan="3" className="label"><b>COSTO ORARIO FINALE (VII)</b></td>
+                <td className="calc-cell num" style={{fontSize:15, fontWeight:900, color:'#b02a2a', background:'#fff3bc'}}>{fmt(c.J81)} €/h</td>
+                <td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style={{height:40}}></div>
+    </div>
+  );
+}
+
+// ===================== VISTA CONFRONTO =====================
+function Confronto({ dipendenti, onBack, onExport }) {
+  const calcs = dipendenti.map(d => ({ d, c: calcola(d) }));
+  return (
+    <div className="container">
+      <div className="edit-head">
+        <h2>Confronto dipendenti ({dipendenti.length})</h2>
+        <div style={{display:'flex', gap:8}}>
+          <button onClick={onExport}>Esporta confronto (Excel)</button>
+          <button className="ghost" onClick={onBack}>← Torna alla dashboard</button>
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="section-body" style={{overflowX:'auto'}}>
+          <table className="compare">
+            <thead>
+              <tr>
+                <th className="metric-col" style={{minWidth:260}}>Metrica</th>
+                {calcs.map(({d}) => (
+                  <th key={d.id} style={{background: d.colore, minWidth:140}}>
+                    {(d.cognome||'').trim()} {(d.nome||'').trim()}<br/>
+                    <span style={{fontSize:10.5, fontWeight:400, opacity:0.9}}>Livello {d.livello}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td className="metric-col">Mesi lavoro annui</td>
+                {calcs.map(({d}) => <td key={d.id} className="num">{fmt(d.mesiLavoro,0)}</td>)}</tr>
+              <tr><td className="metric-col">Ore sett. contrattuali</td>
+                {calcs.map(({d}) => <td key={d.id} className="num">{fmt(d.oreSettContrattuali,0)}</td>)}</tr>
+              <tr><td className="metric-col">Lordo t.pieno (€/mese)</td>
+                {calcs.map(({d}) => <td key={d.id} className="num">{fmt(d.lordoTPieno)}</td>)}</tr>
+              <tr><td className="metric-col">Importo orario CCNL (J2)</td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.J2,4)}</td>)}</tr>
+              <tr><td className="metric-col">Ore effettivamente lavorabili (H37)</td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.H37,2)}</td>)}</tr>
+              <tr><td className="metric-col">Imponibile I</td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.L15)}</td>)}</tr>
+              <tr><td className="metric-col">Imponibile III (con TFR)</td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.L20)}</td>)}</tr>
+              <tr className="highlight"><td className="metric-col"><b>Costo tot. lavoro I (€/anno)</b></td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.K37,0)}</td>)}</tr>
+              <tr className="highlight"><td className="metric-col"><b>Costo orario I (€/h)</b></td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.J37)}</td>)}</tr>
+              <tr className="highlight"><td className="metric-col"><b>Costo orario II (€/h)</b></td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.J45)}</td>)}</tr>
+              <tr className="highlight"><td className="metric-col"><b>Costo orario III (€/h)</b></td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.J54)}</td>)}</tr>
+              <tr className="highlight"><td className="metric-col"><b>Costo orario IV (€/h)</b></td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.J66)}</td>)}</tr>
+              <tr className="final"><td className="metric-col"><b>COSTO ORARIO FINALE VII (€/h)</b></td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.J81)}</td>)}</tr>
+              <tr className="final"><td className="metric-col"><b>COSTO TOTALE ANNUO (€)</b></td>
+                {calcs.map(({d,c}) => <td key={d.id} className="num">{fmt(c.K81,0)}</td>)}</tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===================== EXPORT EXCEL =====================
+function exportSingoloExcel(d) {
+  const c = calcola(d);
+  const wb = XLSX.utils.book_new();
+
+  // Foglio principale: tutti i dati del dipendente
+  const rows = [];
+  rows.push([`RENDICONTAZIONE COSTO ORARIO — ${d.cognome} ${d.nome}`]);
+  rows.push([`Livello ${d.livello}`, '', `Esportato il ${new Date().toLocaleString('it-IT')}`]);
+  rows.push([]);
+  rows.push(['IDENTIFICAZIONE']);
+  rows.push(['Cognome', d.cognome]);
+  rows.push(['Nome', d.nome]);
+  rows.push(['Livello CCNL', d.livello]);
+  rows.push(['Note', d.note]);
+  rows.push([]);
+  rows.push(['DATI CONTRATTUALI PRINCIPALI']);
+  rows.push(['Mesi lavoro annui effettivi', d.mesiLavoro]);
+  rows.push(['Mesi maternità', d.mesiMaternita]);
+  rows.push(['Importo orario CCNL (calc.)', Number(c.J2.toFixed(4))]);
+  rows.push(['Lordo t.pieno (€/mese)', d.lordoTPieno]);
+  rows.push(['Scatti t.pieno', d.scattiTPieno]);
+  rows.push(['Premi t.pieno', d.premiTPieno]);
+  rows.push(['Supermin. t.pieno', d.supermin]);
+  rows.push(['Ore sett. contrattuali', d.oreSettContrattuali]);
+  rows.push(['Ore mese teoriche (calc.)', Number(c.P2.toFixed(4))]);
+  rows.push(['Giorni sett. teorici', d.giorniSettTeorici]);
+  rows.push(['Ore/giorno teoriche (calc.)', Number(c.R2.toFixed(4))]);
+  rows.push(['Fatturato annuo previsto', d.fatturatoAnnuoPrevisto]);
+  rows.push([]);
+  rows.push(['CATENA CALCOLO ORE LAVORABILI']);
+  rows.push(['Settimane vere per mesi contratto (O5)', Number(c.O5.toFixed(4))]);
+  rows.push(['Settimane effett. lavorabili (O6)', d.settimaneEffettLavorabili]);
+  rows.push(['Ore sett. effett. lavorabili (O7)', d.oreSettEffettLavorabili]);
+  rows.push(['Ore effett. intero periodo (O8)', Number(c.O8.toFixed(2))]);
+  rows.push(['Ore sett. realissime (O9)', Number(c.O9.toFixed(4))]);
+  rows.push(['Ore giornal. realissime (O10)', Number(c.O10.toFixed(4))]);
+  rows.push(['Giorni lavorativi annui generali (C37)', Number(c.C37.toFixed(4))]);
+  rows.push(['Giorni lavorativi nei mesi contratto (E37)', Number(c.E37.toFixed(4))]);
+  rows.push(['Ore effett. lavorabili intero periodo (H37)', Number(c.H37.toFixed(2))]);
+  rows.push(['Ore mensili effett. lavorabili (I37)', Number(c.I37.toFixed(2))]);
+  rows.push([]);
+  rows.push(['SEZIONE I — COSTI LAVORO PURI', '', '', 'Base', 'Coeff.', 'Importo €']);
+  rows.push(['Retribuzione mesi lavorati', '', '', Number(c.H5.toFixed(4)), Number(c.I5.toFixed(0)), Number(c.J5.toFixed(2))]);
+  rows.push(['Tredicesima', '', '', Number(c.H6.toFixed(2)), Number(c.I6.toFixed(4)), Number(c.J6.toFixed(2))]);
+  rows.push(['Quattordicesima', '', 'aliq. '+d.aliquotaQuattordicesima+'%', Number(c.H8.toFixed(2)), Number(c.I8.toFixed(4)), Number(c.J8.toFixed(2))]);
+  rows.push(['Ferie e permessi ex festività', d.giorniFerieAnnui+' gg', '', Number(c.H10.toFixed(2)), Number(c.I10.toFixed(4)), Number(c.J10.toFixed(2))]);
+  rows.push(['Festività non godute', d.festivitaNonGodute+' gg', '', Number(c.H12.toFixed(2)), c.I12, Number(c.J12.toFixed(2))]);
+  rows.push(['Malattia (presunz.)', Number(c.E13.toFixed(0))+' gg', d.aliquotaMalattia+'%', Number(c.H13.toFixed(2)), Number(c.I13.toFixed(2)), Number(c.J13.toFixed(2))]);
+  rows.push(['Permessi altra tipologia', d.giorniPermessiAltroTipo+' gg', '', Number(c.H15.toFixed(2)), c.I15, Number(c.J15.toFixed(2))]);
+  rows.push(['Imponibile I (retrib. pure)', '', '', '', '', Number(c.L15.toFixed(2))]);
+  rows.push(['Premi (una tantum)', 'mesi '+d.premiMesiToglibili+' togl.', '€/mese '+d.premiImportoMese, '', '', Number(c.J17.toFixed(2))]);
+  rows.push(['Imponibile II', '', '', '', '', Number(c.L17.toFixed(2))]);
+  rows.push(['TFR maturato nell\u0027anno', '', 'div. '+d.aliquotaTFR, Number(c.H18.toFixed(2)), c.I18, Number(c.J18.toFixed(2))]);
+  rows.push(['Rivalutazione TFR', d.rivTFR_anzianita+' anz.', d.rivTFR_istat+'% ISTAT', '', '', Number(c.J20.toFixed(2))]);
+  rows.push(['Imponibile III', '', '', '', '', Number(c.L20.toFixed(2))]);
+  rows.push(['Previd. complem. TFR', d.aliquotaPrevComplTFR+'%', d.pagamentoPrevComplTFR+'%', Number(c.H22.toFixed(2)), Number(c.I22.toFixed(4)), Number(c.J22.toFixed(2))]);
+  rows.push(['Contributi INPS', d.aliquotaINPS+'%', d.pagamentoINPS+'%', Number(c.H24.toFixed(2)), Number(c.I24.toFixed(4)), Number(c.J24.toFixed(2))]);
+  rows.push(['Contributi INPS tempo det.', d.aliquotaINPSTempoDet+'%', d.pagamentoINPSTempoDet+'%', Number(c.H25.toFixed(2)), Number(c.I25.toFixed(4)), Number(c.J25.toFixed(2))]);
+  rows.push(['Contributi INPS FIS', d.aliquotaINPSFIS+'%', d.pagamentoINPSFIS+'%', Number(c.H26.toFixed(2)), Number(c.I26.toFixed(4)), Number(c.J26.toFixed(2))]);
+  rows.push(['Contributi INAIL', d.aliquotaINAIL+'%', d.pagamentoINAIL+'%', Number(c.H27.toFixed(2)), Number(c.I27.toFixed(4)), Number(c.J27.toFixed(2))]);
+  rows.push(['IRAP', d.aliquotaIRAP+'%', d.pagamentoIRAP+'%', Number(c.H28.toFixed(2)), Number(c.I28.toFixed(4)), Number(c.J28.toFixed(2))]);
+  rows.push(['Assistenza sanit. integr.', d.assistenzaSanitariaAnnua+' €/anno', c.F29+'%', '', '', Number(c.J29.toFixed(2))]);
+  rows.push(['Altri — BP/dichiarazioni', d.bpDichiarazioniMese+' €/mese', Number(c.I30.toFixed(0))+' mesi', '', '', Number(c.J30.toFixed(2))]);
+  rows.push(['Altri — Formazione', d.formazioneAnno+' €/anno', Number(c.I31.toFixed(0))+' mesi', '', '', Number(c.J31.toFixed(2))]);
+  rows.push(['Altri — Rimborso km', 'mesi '+d.rimborsoKmMesiToglibili+' togl.', d.rimborsoKmImportoMese+' €/mese', '', '', Number(c.J33.toFixed(2))]);
+  rows.push(['COSTO TOTALE MESI LAVORO I (J34)', '', '', '', '', Number(c.J34.toFixed(2))]);
+  rows.push(['COSTO ORARIO I (J37)', '', '', '', '', Number(c.J37.toFixed(4))]);
+  rows.push([]);
+  rows.push(['SEZIONE II — SPESE IMPOSTE / BANCHE / COMMERCIALISTA', '', 'Coeff.', 'Base', 'Costo annuo', 'Importo spalmato']);
+  rows.push(['Altri oneri bancari', '', 1, Number(c.H41.toFixed(0)), d.altriOneriBancari, Number(c.J41.toFixed(2))]);
+  rows.push(['IRES + contrib. coop.', '', d.iresCoeff, Number(c.H42.toFixed(0)), Number(c.I42.toFixed(0)), Number(c.J42.toFixed(2))]);
+  rows.push(['Commercialista annuo', '', d.commercialistaCoeff, Number(c.H43.toFixed(0)), Number(c.I43.toFixed(0)), Number(c.J43.toFixed(2))]);
+  rows.push(['Totale Sezione II (J44)', '', '', '', '', Number(c.J44.toFixed(2))]);
+  rows.push(['Costo lavoro II (K45)', '', '', '', '', Number(c.K45.toFixed(2))]);
+  rows.push(['COSTO ORARIO II (J45)', '', '', '', '', Number(c.J45.toFixed(4))]);
+  rows.push([]);
+  rows.push(['SEZIONE III — SPESE DI SEDE', '', 'Base', 'Costo annuo', '', 'Importo spalmato']);
+  rows.push(['Affitto sede + utenza tel.', '', Number(c.H48.toFixed(0)), d.affittoSede, '', Number(c.J48.toFixed(2))]);
+  rows.push(['CdA', '', Number(c.H49.toFixed(0)), d.cda, '', Number(c.J49.toFixed(2))]);
+  rows.push(['Abbonamenti gare', '', Number(c.H50.toFixed(0)), d.abbonamentiGare, '', Number(c.J50.toFixed(2))]);
+  rows.push(['Sito web e PEC', '', Number(c.H51.toFixed(0)), d.sitoPec, '', Number(c.J51.toFixed(2))]);
+  rows.push(['RC', '', Number(c.H52.toFixed(0)), d.rc, '', Number(c.J52.toFixed(2))]);
+  rows.push(['Totale Sezione III (J53)', '', '', '', '', Number(c.J53.toFixed(2))]);
+  rows.push(['Costo lavoro III (K54)', '', '', '', '', Number(c.K54.toFixed(2))]);
+  rows.push(['COSTO ORARIO III (J54)', '', '', '', '', Number(c.J54.toFixed(4))]);
+  rows.push([]);
+  rows.push(['SEZIONE IV — SPESE EXTRA OPERATORE', 'Coeff.', 'Costo unit.', 'Quantità', '', 'Importo']);
+  rows.push(['Giorni sostituzione', 1, d.costoGiornoSostituzione, d.giorniSostituzione, '', Number(c.J57.toFixed(2))]);
+  rows.push(['Raccomandata', 1, d.raccomandata, 1, '', Number(c.J58.toFixed(2))]);
+  rows.push(['Visita medica annua', 1, d.visitaMedica, 1, '', Number(c.J59.toFixed(2))]);
+  rows.push(['Ore formaz. sicurezza', 1, d.oreFormazioneSicurezza, Number(c.I60.toFixed(4)), '', Number(c.J60.toFixed(2))]);
+  rows.push(['Ore indirette altre', 1, d.oreIndiretteAltre, Number(c.I61.toFixed(4)), '', Number(c.J61.toFixed(2))]);
+  rows.push(['Ore maggiorazione straord.', 1, d.oreMaggiorazStraord, Number(c.I62.toFixed(4)), '', Number(c.J62.toFixed(2))]);
+  rows.push(['Utenze tel. mobili', 1, d.utenzeTelMobiliMese, 12, '', Number(c.J63.toFixed(2))]);
+  rows.push(['Rimborsi km mensili', 1, d.rsKmMese, c.I64, '', Number(c.J64.toFixed(2))]);
+  rows.push(['Totale Sezione IV (J65)', '', '', '', '', Number(c.J65.toFixed(2))]);
+  rows.push(['Costo lavoro IV (K66)', '', '', '', '', Number(c.K66.toFixed(2))]);
+  rows.push(['COSTO ORARIO IV (J66)', '', '', '', '', Number(c.J66.toFixed(4))]);
+  rows.push([]);
+  rows.push(['SEZIONE VII — TICKET LICENZIAMENTO (NASpI)']);
+  rows.push(['Aliquota %', d.aliquotaNaspi]);
+  rows.push(['Massimale annuo NASpI', d.massimaleAnnuoNaspi]);
+  rows.push(['Importo (J79/J80)', '', '', '', '', Number(c.J80.toFixed(2))]);
+  rows.push(['Costo lavoro VII (K81)', '', '', '', '', Number(c.K81.toFixed(2))]);
+  rows.push(['COSTO ORARIO FINALE VII (J81)', '', '', '', '', Number(c.J81.toFixed(4))]);
+  rows.push([]);
+  rows.push(['RIEPILOGO COSTI ORARI']);
+  rows.push(['Costo orario I (costi lavoro puri)', Number(c.J37.toFixed(4))]);
+  rows.push(['Costo orario II (+ imposte/comm.)', Number(c.J45.toFixed(4))]);
+  rows.push(['Costo orario III (+ sede)', Number(c.J54.toFixed(4))]);
+  rows.push(['Costo orario IV (+ extra operatore)', Number(c.J66.toFixed(4))]);
+  rows.push(['COSTO ORARIO FINALE VII (+ Naspi)', Number(c.J81.toFixed(4))]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:38},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Costo orario');
+
+  // Metadata autore
+  if (!wb.Props) wb.Props = {};
+  wb.Props.Author = 'Christian Canonica';
+  wb.Props.Company = 'Spazio Ireos Società Cooperativa Sociale';
+  wb.Props.Title = `Costo orario ${d.cognome} ${d.nome}`;
+  wb.Props.CreatedDate = new Date();
+
+  const pad = (n) => String(n).padStart(2,'0');
+  const now = new Date();
+  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const dateStr = pad(now.getDate()) + mesi[now.getMonth()] + String(now.getFullYear()).slice(-2);
+  const timeStr = pad(now.getHours())+'.'+pad(now.getMinutes());
+  const cleanName = (d.cognome+'_'+d.nome).replace(/[^a-zA-Z0-9]/g,'').slice(0,30);
+  const filename = `Costo orario ${cleanName} ${dateStr} - ver1 - ${timeStr}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
+function exportTuttiExcel(dipendenti) {
+  if (dipendenti.length === 0) return;
+  const wb = XLSX.utils.book_new();
+  wb.Props = { Author:'Christian Canonica', Company:'Spazio Ireos Società Cooperativa Sociale', Title:'Costo orario tutti i dipendenti', CreatedDate:new Date() };
+
+  // Foglio riepilogo confronto
+  const header = ['Metrica', ...dipendenti.map(d => (d.cognome+' '+d.nome+' ('+d.livello+')').trim())];
+  const rows = [header];
+  const addRow = (lbl, getter, dec) => {
+    rows.push([lbl, ...dipendenti.map(d => {
+      const v = getter(d, calcola(d));
+      if (typeof v === 'number') return Number(v.toFixed(dec !== undefined ? dec : 2));
+      return v;
+    })]);
+  };
+  addRow('Mesi lavoro', d => d.mesiLavoro, 0);
+  addRow('Mesi maternità', d => d.mesiMaternita, 0);
+  addRow('Ore sett. contrattuali', d => d.oreSettContrattuali, 0);
+  addRow('Lordo t.pieno €/mese', d => d.lordoTPieno);
+  addRow('Supermin €', d => d.supermin);
+  addRow('Fatturato annuo prev. €', d => d.fatturatoAnnuoPrevisto, 0);
+  addRow('Importo orario CCNL (J2)', (d,c) => c.J2, 4);
+  addRow('Ore effettiv. lavorabili (H37)', (d,c) => c.H37, 2);
+  addRow('Imponibile I', (d,c) => c.L15);
+  addRow('Imponibile III', (d,c) => c.L20);
+  addRow('Costo tot. lavoro I (€/anno)', (d,c) => c.K37, 0);
+  addRow('Costo tot. lavoro II (€/anno)', (d,c) => c.K45, 0);
+  addRow('Costo tot. lavoro III (€/anno)', (d,c) => c.K54, 0);
+  addRow('Costo tot. lavoro IV (€/anno)', (d,c) => c.K66, 0);
+  addRow('Costo tot. lavoro VII (€/anno)', (d,c) => c.K81, 0);
+  addRow('Costo orario I (€/h)', (d,c) => c.J37, 4);
+  addRow('Costo orario II (€/h)', (d,c) => c.J45, 4);
+  addRow('Costo orario III (€/h)', (d,c) => c.J54, 4);
+  addRow('Costo orario IV (€/h)', (d,c) => c.J66, 4);
+  addRow('COSTO ORARIO FINALE VII (€/h)', (d,c) => c.J81, 4);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wch = [{wch:34}];
+  for (let i=0; i<dipendenti.length; i++) wch.push({wch:18});
+  ws['!cols'] = wch;
+  XLSX.utils.book_append_sheet(wb, ws, 'Confronto');
+
+  // Un foglio per dipendente (sintesi)
+  dipendenti.forEach(d => {
+    const c = calcola(d);
+    const r = [];
+    r.push([`${d.cognome} ${d.nome} — Livello ${d.livello}`]);
+    r.push([d.note || '']);
+    r.push([]);
+    r.push(['Input principali', '']);
+    r.push(['Mesi lavoro', d.mesiLavoro]);
+    r.push(['Mesi maternità', d.mesiMaternita]);
+    r.push(['Lordo t.pieno', d.lordoTPieno]);
+    r.push(['Ore sett. contratt.', d.oreSettContrattuali]);
+    r.push(['Fatturato annuo prev.', d.fatturatoAnnuoPrevisto]);
+    r.push([]);
+    r.push(['Risultati', '']);
+    r.push(['Ore effett. lavorabili (H37)', Number(c.H37.toFixed(2))]);
+    r.push(['Imponibile I (L15)', Number(c.L15.toFixed(2))]);
+    r.push(['Imponibile III (L20)', Number(c.L20.toFixed(2))]);
+    r.push(['Costo tot. lavoro I (K37)', Number(c.K37.toFixed(2))]);
+    r.push(['Costo orario I', Number(c.J37.toFixed(4))]);
+    r.push(['Costo orario II', Number(c.J45.toFixed(4))]);
+    r.push(['Costo orario III', Number(c.J54.toFixed(4))]);
+    r.push(['Costo orario IV', Number(c.J66.toFixed(4))]);
+    r.push(['COSTO ORARIO VII', Number(c.J81.toFixed(4))]);
+    r.push(['Costo tot. annuo VII (K81)', Number(c.K81.toFixed(2))]);
+    const wsd = XLSX.utils.aoa_to_sheet(r);
+    wsd['!cols'] = [{wch:34},{wch:18}];
+    const safeName = ((d.cognome+'_'+d.nome) || d.id).replace(/[^a-zA-Z0-9]/g,'').slice(0,28) || d.id;
+    XLSX.utils.book_append_sheet(wb, wsd, safeName);
+  });
+
+  const pad = (n) => String(n).padStart(2,'0');
+  const now = new Date();
+  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const dateStr = pad(now.getDate()) + mesi[now.getMonth()] + String(now.getFullYear()).slice(-2);
+  const timeStr = pad(now.getHours())+'.'+pad(now.getMinutes());
+  const filename = `Costo orario dipendenti ${dateStr} - ver1 - ${timeStr}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
+// ===================== APP PRINCIPALE =====================
+const STORAGE_KEY = 'spazioireos_costo_orario_v1';
+
+function App() {
+  const [dipendenti, setDipendenti] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch(ex) { return []; }
+  });
+  const [view, setView] = useState('dashboard');
+  const [currentId, setCurrentId] = useState(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(dipendenti)); } catch(ex) {}
+  }, [dipendenti]);
+
+  const handleNew = () => setView('wizard');
+
+  const handleEdit = (id) => {
+    setCurrentId(id);
+    setView('edit');
+  };
+
+  const handleDelete = (id) => {
+    const d = dipendenti.find(x => x.id === id);
+    if (!d) return;
+    if (confirm(`Eliminare definitivamente "${d.cognome} ${d.nome}"?`)) {
+      setDipendenti(p => p.filter(x => x.id !== id));
+    }
+  };
+
+  const handleDuplicate = (id) => {
+    const d = dipendenti.find(x => x.id === id);
+    if (!d) return;
+    const copy = { ...d, id: uid(), cognome: d.cognome + ' (copia)', createdAt: new Date().toISOString() };
+    setDipendenti(p => [...p, copy]);
+  };
+
+  const handleWizardSave = (draft) => {
+    setDipendenti(p => [...p, draft]);
+    setView('dashboard');
+  };
+
+  const handleEditSave = (mod) => {
+    setDipendenti(p => p.map(x => x.id === mod.id ? mod : x));
+    setView('dashboard');
+  };
+
+  const handleCompare = () => setView('confronto');
+  const handleExportAll = () => exportTuttiExcel(dipendenti);
+  const handleExportSingle = (d) => exportSingoloExcel(d);
+  const handleExportCompare = () => exportTuttiExcel(dipendenti);
+
+  const current = dipendenti.find(d => d.id === currentId);
+
+  return (
+    <div>
+      <div className="app-header">
+        <div>
+          <h1>Costo Orario Dipendenti — Spazio Ireos</h1>
+          <div className="sub">Rendicontazione interna · Cooperativa Sociale · C.F. 06314390961</div>
+        </div>
+        <div className="actions">
+          <button className="ghost" style={{color:'#fff', borderColor:'rgba(255,255,255,0.4)'}}
+                  onClick={() => {
+                    if (confirm('Esportare un backup JSON di tutti i dipendenti su file locale?')) {
+                      const blob = new Blob([JSON.stringify(dipendenti, null, 2)], { type:'application/json' });
+                      const u = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = u;
+                      const pad = (n) => String(n).padStart(2,'0');
+                      const now = new Date();
+                      const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+                      a.download = `Costo orario backup ${pad(now.getDate())}${mesi[now.getMonth()]}${String(now.getFullYear()).slice(-2)} - ${pad(now.getHours())}.${pad(now.getMinutes())}.json`;
+                      a.click();
+                      URL.revokeObjectURL(u);
+                    }
+                  }}>
+            Backup JSON
+          </button>
+          <label className="ghost" style={{color:'#fff', borderColor:'rgba(255,255,255,0.4)', padding:'7px 14px', borderRadius:4, cursor:'pointer', fontSize:13, fontWeight:700, border:'1px solid rgba(255,255,255,0.4)', background:'transparent'}}>
+            Ripristina JSON
+            <input type="file" accept="application/json" style={{display:'none'}} onChange={(e) => {
+              const f = e.target.files[0];
+              if (!f) return;
+              const r = new FileReader();
+              r.onload = (ev) => {
+                try {
+                  const arr = JSON.parse(ev.target.result);
+                  if (!Array.isArray(arr)) throw new Error('File non valido');
+                  if (confirm(`Il file contiene ${arr.length} dipendenti. Sovrascrivere i dati attuali (${dipendenti.length})?`)) {
+                    setDipendenti(arr);
+                  }
+                } catch(ex) {
+                  alert('File non valido: ' + ex.message);
+                }
+              };
+              r.readAsText(f);
+              e.target.value = '';
+            }} />
+          </label>
+        </div>
+      </div>
+
+      {view === 'dashboard' && (
+        <Dashboard
+          dipendenti={dipendenti}
+          onNew={handleNew}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onDuplicate={handleDuplicate}
+          onCompare={handleCompare}
+          onExportAll={handleExportAll}
+        />
+      )}
+      {view === 'wizard' && (
+        <Wizard
+          onCancel={() => setView('dashboard')}
+          onSave={handleWizardSave}
+        />
+      )}
+      {view === 'edit' && current && (
+        <EditDipendente
+          dipendente={current}
+          onSave={handleEditSave}
+          onCancel={() => setView('dashboard')}
+          onExport={handleExportSingle}
+        />
+      )}
+      {view === 'confronto' && (
+        <Confronto
+          dipendenti={dipendenti}
+          onBack={() => setView('dashboard')}
+          onExport={handleExportCompare}
+        />
+      )}
+
+      <div className="footer-note">
+        Spazio Ireos Società Cooperativa Sociale — C.F./P.IVA 06314390961 — Via L. Temolo 4, 20126 Milano — autore: Christian Canonica
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
